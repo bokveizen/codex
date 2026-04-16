@@ -336,6 +336,37 @@ impl App {
             AppEvent::PluginsLoaded { cwd, result } => {
                 self.chat_widget.on_plugins_loaded(cwd, result);
             }
+            AppEvent::OpenMarketplaceAddPrompt => {
+                self.chat_widget.open_marketplace_add_prompt();
+            }
+            AppEvent::OpenMarketplaceAddLoading { source } => {
+                self.chat_widget.open_marketplace_add_loading_popup(&source);
+            }
+            AppEvent::FetchMarketplaceAdd { cwd, source } => {
+                self.fetch_marketplace_add(app_server, cwd, source);
+            }
+            AppEvent::MarketplaceAddLoaded {
+                cwd,
+                source,
+                result,
+            } => {
+                let add_succeeded = result.is_ok();
+                if add_succeeded {
+                    if let Err(err) = self.refresh_in_memory_config_from_disk().await {
+                        tracing::warn!(
+                            error = %err,
+                            "failed to refresh config after marketplace add"
+                        );
+                    }
+                    self.chat_widget.refresh_plugin_mentions();
+                    self.chat_widget.submit_op(AppCommand::reload_user_config());
+                }
+                self.chat_widget
+                    .on_marketplace_add_loaded(cwd.clone(), source, result);
+                if add_succeeded && self.chat_widget.config_ref().cwd.as_path() == cwd.as_path() {
+                    self.fetch_plugins_list(app_server, cwd);
+                }
+            }
             AppEvent::FetchPluginDetail { cwd, params } => {
                 self.fetch_plugin_detail(app_server, cwd, params);
             }
