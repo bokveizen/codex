@@ -1927,8 +1927,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn config_cwd_for_app_server_target_omits_cwd_for_remote_sessions() -> std::io::Result<()> {
+    #[tokio::test]
+    async fn config_cwd_for_app_server_target_omits_cwd_for_remote_sessions() -> std::io::Result<()>
+    {
         let remote_only_cwd = if cfg!(windows) {
             Path::new(r"C:\definitely\not\local\to\this\test")
         } else {
@@ -1948,8 +1949,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn config_cwd_for_app_server_target_canonicalizes_embedded_cli_cwd() -> std::io::Result<()> {
+    #[tokio::test]
+    async fn config_cwd_for_app_server_target_canonicalizes_embedded_cli_cwd() -> std::io::Result<()>
+    {
         let temp_dir = TempDir::new()?;
         let target = AppServerTarget::Embedded;
         let environment_manager =
@@ -1967,9 +1969,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn config_cwd_for_app_server_target_errors_for_missing_embedded_cli_cwd() -> std::io::Result<()>
-    {
+    #[tokio::test]
+    async fn config_cwd_for_app_server_target_errors_for_missing_embedded_cli_cwd()
+    -> std::io::Result<()> {
         let temp_dir = TempDir::new()?;
         let missing = temp_dir.path().join("missing");
         let target = AppServerTarget::Embedded;
@@ -1983,8 +1985,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn config_cwd_for_app_server_target_omits_cwd_for_remote_exec_server() -> std::io::Result<()> {
+    #[tokio::test]
+    async fn config_cwd_for_app_server_target_omits_cwd_for_remote_exec_server()
+    -> std::io::Result<()> {
         let remote_only_cwd = if cfg!(windows) {
             Path::new(r"C:\definitely\not\local\to\this\test")
         } else {
