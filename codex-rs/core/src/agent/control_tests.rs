@@ -94,8 +94,8 @@ impl AgentControlHarness {
             CodexAuth::from_api_key("dummy"),
             config.model_provider.clone(),
             config.codex_home.to_path_buf(),
-            std::sync::Arc::new(codex_exec_server::EnvironmentManager::new(
-                /*exec_server_url*/ None,
+            std::sync::Arc::new(codex_exec_server::EnvironmentManager::from_exec_server_url(
+                codex_exec_server::EnvironmentManagerArgs::default(),
             )),
         );
         let control = manager.agent_control();
@@ -910,8 +910,8 @@ async fn spawn_agent_respects_max_threads_limit() {
         CodexAuth::from_api_key("dummy"),
         config.model_provider.clone(),
         config.codex_home.to_path_buf(),
-        std::sync::Arc::new(codex_exec_server::EnvironmentManager::new(
-            /*exec_server_url*/ None,
+        std::sync::Arc::new(codex_exec_server::EnvironmentManager::from_exec_server_url(
+            codex_exec_server::EnvironmentManagerArgs::default(),
         )),
     );
     let control = manager.agent_control();
@@ -964,8 +964,8 @@ async fn spawn_agent_releases_slot_after_shutdown() {
         CodexAuth::from_api_key("dummy"),
         config.model_provider.clone(),
         config.codex_home.to_path_buf(),
-        std::sync::Arc::new(codex_exec_server::EnvironmentManager::new(
-            /*exec_server_url*/ None,
+        std::sync::Arc::new(codex_exec_server::EnvironmentManager::from_exec_server_url(
+            codex_exec_server::EnvironmentManagerArgs::default(),
         )),
     );
     let control = manager.agent_control();
@@ -1009,8 +1009,8 @@ async fn spawn_agent_limit_shared_across_clones() {
         CodexAuth::from_api_key("dummy"),
         config.model_provider.clone(),
         config.codex_home.to_path_buf(),
-        std::sync::Arc::new(codex_exec_server::EnvironmentManager::new(
-            /*exec_server_url*/ None,
+        std::sync::Arc::new(codex_exec_server::EnvironmentManager::from_exec_server_url(
+            codex_exec_server::EnvironmentManagerArgs::default(),
         )),
     );
     let control = manager.agent_control();
@@ -1056,8 +1056,8 @@ async fn resume_agent_respects_max_threads_limit() {
         CodexAuth::from_api_key("dummy"),
         config.model_provider.clone(),
         config.codex_home.to_path_buf(),
-        std::sync::Arc::new(codex_exec_server::EnvironmentManager::new(
-            /*exec_server_url*/ None,
+        std::sync::Arc::new(codex_exec_server::EnvironmentManager::from_exec_server_url(
+            codex_exec_server::EnvironmentManagerArgs::default(),
         )),
     );
     let control = manager.agent_control();
@@ -1114,8 +1114,8 @@ async fn resume_agent_releases_slot_after_resume_failure() {
         CodexAuth::from_api_key("dummy"),
         config.model_provider.clone(),
         config.codex_home.to_path_buf(),
-        std::sync::Arc::new(codex_exec_server::EnvironmentManager::new(
-            /*exec_server_url*/ None,
+        std::sync::Arc::new(codex_exec_server::EnvironmentManager::from_exec_server_url(
+            codex_exec_server::EnvironmentManagerArgs::default(),
         )),
     );
     let control = manager.agent_control();
@@ -1511,8 +1511,8 @@ async fn resume_thread_subagent_restores_stored_nickname_and_role() {
         CodexAuth::from_api_key("dummy"),
         config.model_provider.clone(),
         config.codex_home.to_path_buf(),
-        std::sync::Arc::new(codex_exec_server::EnvironmentManager::new(
-            /*exec_server_url*/ None,
+        std::sync::Arc::new(codex_exec_server::EnvironmentManager::from_exec_server_url(
+            codex_exec_server::EnvironmentManagerArgs::default(),
         )),
     );
     let control = manager.agent_control();
