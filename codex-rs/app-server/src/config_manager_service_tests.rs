@@ -4,6 +4,9 @@ use codex_app_server_protocol::AppConfig;
 use codex_app_server_protocol::AppToolApproval;
 use codex_app_server_protocol::AppsConfig;
 use codex_app_server_protocol::AskForApproval;
+use codex_core::config_loader::CloudRequirementsLoader;
+use codex_core::config_loader::FeatureRequirementsToml;
+use codex_core::config_loader::LoaderOverrides;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use pretty_assertions::assert_eq;
 use std::collections::BTreeMap;
@@ -74,7 +77,7 @@ unified_exec = true
 "#;
     std::fs::write(tmp.path().join(CONFIG_TOML_FILE), original)?;
 
-    let service = ConfigService::without_managed_config_for_tests(tmp.path().to_path_buf());
+    let service = ConfigManager::without_managed_config_for_tests(tmp.path().to_path_buf());
     service
         .write_value(ConfigValueWriteParams {
             file_path: Some(tmp.path().join(CONFIG_TOML_FILE).display().to_string()),
@@ -108,7 +111,7 @@ async fn write_value_supports_nested_app_paths() -> Result<()> {
     let tmp = tempdir().expect("tempdir");
     std::fs::write(tmp.path().join(CONFIG_TOML_FILE), "")?;
 
-    let service = ConfigService::without_managed_config_for_tests(tmp.path().to_path_buf());
+    let service = ConfigManager::without_managed_config_for_tests(tmp.path().to_path_buf());
     service
         .write_value(ConfigValueWriteParams {
             file_path: Some(tmp.path().join(CONFIG_TOML_FILE).display().to_string()),
@@ -172,7 +175,7 @@ async fn write_value_supports_custom_mcp_server_default_tool_approval_mode() -> 
         "[mcp_servers.docs]\ncommand = \"docs-server\"\n",
     )?;
 
-    let service = ConfigService::without_managed_config_for_tests(tmp.path().to_path_buf());
+    let service = ConfigManager::without_managed_config_for_tests(tmp.path().to_path_buf());
     service
         .write_value(ConfigValueWriteParams {
             file_path: Some(tmp.path().join(CONFIG_TOML_FILE).display().to_string()),
@@ -218,7 +221,7 @@ async fn read_includes_origins_and_layers() {
     std::fs::write(&managed_path, "approval_policy = \"never\"").unwrap();
     let managed_file = AbsolutePathBuf::try_from(managed_path.clone()).expect("managed file");
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
@@ -296,7 +299,7 @@ writable_roots = ["~/code"]
         ),
     );
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         vec![],
         loader_overrides,
@@ -336,7 +339,7 @@ async fn write_value_reports_override() {
     std::fs::write(&managed_path, "approval_policy = \"never\"").unwrap();
     let managed_file = AbsolutePathBuf::try_from(managed_path.clone()).expect("managed file");
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
@@ -385,7 +388,7 @@ async fn version_conflict_rejected() {
     let user_path = tmp.path().join(CONFIG_TOML_FILE);
     std::fs::write(&user_path, "model = \"user\"").unwrap();
 
-    let service = ConfigService::without_managed_config_for_tests(tmp.path().to_path_buf());
+    let service = ConfigManager::without_managed_config_for_tests(tmp.path().to_path_buf());
     let error = service
         .write_value(ConfigValueWriteParams {
             file_path: Some(tmp.path().join(CONFIG_TOML_FILE).display().to_string()),
@@ -408,7 +411,7 @@ async fn write_value_defaults_to_user_config_path() {
     let tmp = tempdir().expect("tempdir");
     std::fs::write(tmp.path().join(CONFIG_TOML_FILE), "").unwrap();
 
-    let service = ConfigService::without_managed_config_for_tests(tmp.path().to_path_buf());
+    let service = ConfigManager::without_managed_config_for_tests(tmp.path().to_path_buf());
     service
         .write_value(ConfigValueWriteParams {
             file_path: None,
@@ -435,7 +438,7 @@ async fn invalid_user_value_rejected_even_if_overridden_by_managed() {
     let managed_path = tmp.path().join("managed_config.toml");
     std::fs::write(&managed_path, "approval_policy = \"never\"").unwrap();
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
@@ -467,7 +470,7 @@ async fn reserved_builtin_provider_override_rejected() {
     let tmp = tempdir().expect("tempdir");
     std::fs::write(tmp.path().join(CONFIG_TOML_FILE), "model = \"user\"\n").unwrap();
 
-    let service = ConfigService::without_managed_config_for_tests(tmp.path().to_path_buf());
+    let service = ConfigManager::without_managed_config_for_tests(tmp.path().to_path_buf());
     let error = service
         .write_value(ConfigValueWriteParams {
             file_path: Some(tmp.path().join(CONFIG_TOML_FILE).display().to_string()),
@@ -495,13 +498,13 @@ async fn write_value_rejects_feature_requirement_conflict() {
     let tmp = tempdir().expect("tempdir");
     std::fs::write(tmp.path().join(CONFIG_TOML_FILE), "").unwrap();
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::without_managed_config_for_tests(),
         CloudRequirementsLoader::new(async {
             Ok(Some(ConfigRequirementsToml {
-                feature_requirements: Some(crate::config_loader::FeatureRequirementsToml {
+                feature_requirements: Some(FeatureRequirementsToml {
                     entries: BTreeMap::from([("personality".to_string(), true)]),
                 }),
                 ..Default::default()
@@ -541,13 +544,13 @@ async fn write_value_rejects_profile_feature_requirement_conflict() {
     let tmp = tempdir().expect("tempdir");
     std::fs::write(tmp.path().join(CONFIG_TOML_FILE), "").unwrap();
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::without_managed_config_for_tests(),
         CloudRequirementsLoader::new(async {
             Ok(Some(ConfigRequirementsToml {
-                feature_requirements: Some(crate::config_loader::FeatureRequirementsToml {
+                feature_requirements: Some(FeatureRequirementsToml {
                     entries: BTreeMap::from([("personality".to_string(), true)]),
                 }),
                 ..Default::default()
@@ -598,7 +601,7 @@ async fn read_reports_managed_overrides_user_and_session_flags() {
         TomlValue::String("session".to_string()),
     )];
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         cli_overrides,
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
@@ -651,7 +654,7 @@ async fn write_value_reports_managed_override() {
     std::fs::write(&managed_path, "approval_policy = \"never\"").unwrap();
     let managed_file = AbsolutePathBuf::try_from(managed_path.clone()).expect("managed file");
 
-    let service = ConfigService::new(
+    let service = ConfigManager::new_for_tests(
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
@@ -706,7 +709,7 @@ alpha = "a"
 
     std::fs::write(&path, base)?;
 
-    let service = ConfigService::without_managed_config_for_tests(tmp.path().to_path_buf());
+    let service = ConfigManager::without_managed_config_for_tests(tmp.path().to_path_buf());
     service
         .write_value(ConfigValueWriteParams {
             file_path: Some(path.display().to_string()),
