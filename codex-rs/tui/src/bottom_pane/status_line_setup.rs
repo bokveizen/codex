@@ -49,6 +49,7 @@ use crate::render::renderable::Renderable;
 #[strum(serialize_all = "kebab_case")]
 pub(crate) enum StatusLineItem {
     /// The current model name.
+    #[strum(to_string = "model", serialize = "model-name")]
     ModelName,
 
     /// Model name with reasoning level suffix.
@@ -58,10 +59,18 @@ pub(crate) enum StatusLineItem {
     CurrentDir,
 
     /// Project root directory (if detected).
+    #[strum(
+        to_string = "project-name",
+        serialize = "project",
+        serialize = "project-root"
+    )]
     ProjectRoot,
 
     /// Current git branch name (if in a repository).
     GitBranch,
+
+    /// Compact runtime status text.
+    Status,
 
     /// Percentage of context window remaining.
     ContextRemaining,
@@ -101,6 +110,9 @@ pub(crate) enum StatusLineItem {
 
     /// Current thread title (if set by user).
     ThreadTitle,
+
+    /// Latest checklist task progress from `update_plan` (if available).
+    TaskProgress,
 }
 
 impl StatusLineItem {
@@ -110,8 +122,9 @@ impl StatusLineItem {
             StatusLineItem::ModelName => "Current model name",
             StatusLineItem::ModelWithReasoning => "Current model name with reasoning level",
             StatusLineItem::CurrentDir => "Current working directory",
-            StatusLineItem::ProjectRoot => "Project root directory (omitted when unavailable)",
+            StatusLineItem::ProjectRoot => "Project name (omitted when unavailable)",
             StatusLineItem::GitBranch => "Current Git branch (omitted when unavailable)",
+            StatusLineItem::Status => "Compact session status text (Ready, Working, Thinking)",
             StatusLineItem::ContextRemaining => {
                 "Percentage of context window remaining (omitted when unknown)"
             }
@@ -135,7 +148,10 @@ impl StatusLineItem {
                 "Current session identifier (omitted until session starts)"
             }
             StatusLineItem::FastMode => "Whether Fast mode is currently active",
-            StatusLineItem::ThreadTitle => "Current thread title (omitted unless changed by user)",
+            StatusLineItem::ThreadTitle => "Current thread title (omitted when unavailable)",
+            StatusLineItem::TaskProgress => {
+                "Latest task progress from update_plan (omitted until available)"
+            }
         }
     }
 
@@ -146,6 +162,7 @@ impl StatusLineItem {
             StatusLineItem::CurrentDir => StatusSurfacePreviewItem::CurrentDir,
             StatusLineItem::ProjectRoot => StatusSurfacePreviewItem::ProjectRoot,
             StatusLineItem::GitBranch => StatusSurfacePreviewItem::GitBranch,
+            StatusLineItem::Status => StatusSurfacePreviewItem::Status,
             StatusLineItem::ContextRemaining => StatusSurfacePreviewItem::ContextRemaining,
             StatusLineItem::ContextUsed => StatusSurfacePreviewItem::ContextUsed,
             StatusLineItem::FiveHourLimit => StatusSurfacePreviewItem::FiveHourLimit,
@@ -158,6 +175,7 @@ impl StatusLineItem {
             StatusLineItem::SessionId => StatusSurfacePreviewItem::SessionId,
             StatusLineItem::FastMode => StatusSurfacePreviewItem::FastMode,
             StatusLineItem::ThreadTitle => StatusSurfacePreviewItem::ThreadTitle,
+            StatusLineItem::TaskProgress => StatusSurfacePreviewItem::TaskProgress,
         }
     }
 }
@@ -323,6 +341,48 @@ mod tests {
             "context-remaining"
         );
     }
+    #[test]
+    fn project_name_is_canonical_and_accepts_legacy_ids() {
+        assert_eq!(StatusLineItem::ProjectRoot.to_string(), "project-name");
+        assert_eq!(
+            "project-name".parse::<StatusLineItem>(),
+            Ok(StatusLineItem::ProjectRoot)
+        );
+        assert_eq!(
+            "project".parse::<StatusLineItem>(),
+            Ok(StatusLineItem::ProjectRoot)
+        );
+        assert_eq!(
+            "project-root".parse::<StatusLineItem>(),
+            Ok(StatusLineItem::ProjectRoot)
+        );
+    }
+
+    #[test]
+    fn model_is_canonical_and_accepts_model_name_legacy_id() {
+        assert_eq!(StatusLineItem::ModelName.to_string(), "model");
+        assert_eq!(
+            "model".parse::<StatusLineItem>(),
+            Ok(StatusLineItem::ModelName)
+        );
+        assert_eq!(
+            "model-name".parse::<StatusLineItem>(),
+            Ok(StatusLineItem::ModelName)
+        );
+    }
+
+    #[test]
+    fn parse_status_line_items_accepts_title_only_variants() {
+        let items = ["status", "task-progress"]
+            .into_iter()
+            .map(|id| id.parse::<StatusLineItem>())
+            .collect::<Result<Vec<_>, _>>();
+        assert_eq!(
+            items,
+            Ok(vec![StatusLineItem::Status, StatusLineItem::TaskProgress,])
+        );
+    }
+
     #[test]
     fn preview_uses_runtime_values() {
         let preview_data = StatusSurfacePreviewData::from_iter([
