@@ -5673,27 +5673,20 @@ impl CodexMessageProcessor {
             .await;
         let auth_manager = Arc::clone(&self.auth_manager);
         let auth = auth_manager.auth().await;
-        let runtime_environment = match self.thread_manager.environment_manager().current().await {
-            Ok(Some(environment)) => {
+        let runtime_environment = match self
+            .thread_manager
+            .environment_manager()
+            .default_environment()
+        {
+            Some(environment) => {
                 // Status listing has no turn cwd. This fallback is used only
                 // by executor-backed stdio MCPs whose config omits `cwd`.
                 McpRuntimeEnvironment::new(environment, config.cwd.to_path_buf())
             }
-            Ok(None) => McpRuntimeEnvironment::new(
+            None => McpRuntimeEnvironment::new(
                 Arc::new(codex_exec_server::Environment::default()),
                 config.cwd.to_path_buf(),
             ),
-            Err(err) => {
-                // TODO(aibrahim): Investigate degrading MCP status listing when
-                // executor environment creation fails.
-                let error = JSONRPCErrorError {
-                    code: INTERNAL_ERROR_CODE,
-                    message: format!("failed to create environment: {err}"),
-                    data: None,
-                };
-                self.outgoing.send_error(request, error).await;
-                return;
-            }
         };
 
         tokio::spawn(async move {
