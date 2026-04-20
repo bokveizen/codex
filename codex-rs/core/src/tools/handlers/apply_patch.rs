@@ -401,12 +401,18 @@ impl ToolHandler for ApplyPatchHandler {
         .await
         {
             codex_apply_patch::MaybeApplyPatchVerified::Body(changes) => {
+                let action_cwd = changes.cwd.clone();
                 let (file_paths, effective_additional_permissions, file_system_sandbox_policy) =
-                    effective_patch_permissions(session.as_ref(), turn.as_ref(), &cwd, &changes)
-                        .await;
+                    effective_patch_permissions(
+                        session.as_ref(),
+                        turn.as_ref(),
+                        &action_cwd,
+                        &changes,
+                    )
+                    .await;
                 match apply_patch::apply_patch(
                     turn.as_ref(),
-                    &cwd,
+                    &action_cwd,
                     &file_system_sandbox_policy,
                     changes,
                 )
@@ -431,7 +437,7 @@ impl ToolHandler for ApplyPatchHandler {
                         let req = ApplyPatchRequest {
                             environment_id: tool_environment.environment_id.clone(),
                             environment: tool_environment.environment,
-                            cwd,
+                            cwd: action_cwd,
                             action: apply.action,
                             file_paths,
                             changes,
@@ -513,6 +519,7 @@ pub(crate) async fn intercept_apply_patch(
         .await
     {
         codex_apply_patch::MaybeApplyPatchVerified::Body(changes) => {
+            let action_cwd = changes.cwd.clone();
             session
                 .record_model_warning(
                     format!(
@@ -522,9 +529,15 @@ pub(crate) async fn intercept_apply_patch(
                 )
                 .await;
             let (approval_keys, effective_additional_permissions, file_system_sandbox_policy) =
-                effective_patch_permissions(session.as_ref(), turn.as_ref(), cwd, &changes).await;
-            match apply_patch::apply_patch(turn.as_ref(), cwd, &file_system_sandbox_policy, changes)
-                .await
+                effective_patch_permissions(session.as_ref(), turn.as_ref(), &action_cwd, &changes)
+                    .await;
+            match apply_patch::apply_patch(
+                turn.as_ref(),
+                &action_cwd,
+                &file_system_sandbox_policy,
+                changes,
+            )
+            .await
             {
                 InternalApplyPatchInvocation::Output(item) => {
                     let content = item?;
@@ -553,7 +566,7 @@ pub(crate) async fn intercept_apply_patch(
                                     "apply_patch is unavailable in this session".to_string(),
                                 )
                             })?,
-                        cwd: cwd.clone(),
+                        cwd: action_cwd,
                         action: apply.action,
                         file_paths: approval_keys,
                         changes,
