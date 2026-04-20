@@ -16,7 +16,6 @@ use codex_api::AuthProvider;
 use codex_api::upload_local_file;
 use codex_login::CodexAuth;
 use codex_model_provider::AuthorizationHeaderAuthProvider;
-use codex_model_provider::BearerAuthProvider;
 use serde_json::Value as JsonValue;
 
 pub(crate) async fn rewrite_mcp_tool_arguments_for_openai_files(
@@ -120,29 +119,22 @@ async fn build_uploaded_local_argument_value(
             "ChatGPT auth is required to upload local files for Codex Apps tools".to_string(),
         );
     };
-    let upload_auth: Box<dyn AuthProvider> = if let Some(authorization_header_value) = sess
-        .authorization_header_for_current_agent_task()
+    let authorization_header_value = sess
+        .services
+        .auth_manager
+        .chatgpt_authorization_header_for_auth(auth)
         .await
-        .map_err(|error| format!("failed to build agent assertion authorization: {error}"))?
-    {
-        let mut auth_provider = AuthorizationHeaderAuthProvider::new(
-            Some(authorization_header_value),
-            /*account_id*/ None,
-        );
-        if auth.is_fedramp_account() {
-            auth_provider = auth_provider.with_fedramp_routing_header();
-        }
-        Box::new(auth_provider)
-    } else {
-        let token_data = auth
-            .get_token_data()
-            .map_err(|error| format!("failed to read ChatGPT auth for file upload: {error}"))?;
-        Box::new(BearerAuthProvider {
-            token: Some(token_data.access_token),
-            account_id: token_data.account_id,
-            is_fedramp_account: auth.is_fedramp_account(),
-        })
-    };
+        .ok_or_else(|| {
+            "ChatGPT auth is required to upload local files for Codex Apps tools".to_string()
+        })?;
+    let mut auth_provider = AuthorizationHeaderAuthProvider::new(
+        Some(authorization_header_value),
+        auth.get_account_id(),
+    );
+    if auth.is_fedramp_account() {
+        auth_provider = auth_provider.with_fedramp_routing_header();
+    }
+    let upload_auth: Box<dyn AuthProvider> = Box::new(auth_provider);
     let uploaded = upload_local_file(
         turn_context.config.chatgpt_base_url.trim_end_matches('/'),
         upload_auth.as_ref(),
@@ -168,80 +160,24 @@ async fn build_uploaded_local_argument_value(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent_identity::AgentIdentityManager;
-    use crate::agent_identity::RegisteredAgentTask;
     use crate::session::tests::make_session_and_context;
-    use chrono::Utc;
-    use codex_login::AuthCredentialsStoreMode;
-    use codex_login::AuthDotJson;
     use codex_login::AuthManager;
-    use codex_login::save_auth;
-    use codex_login::token_data::IdTokenInfo;
-    use codex_login::token_data::TokenData;
-    use codex_protocol::protocol::SessionSource;
     use codex_utils_absolute_path::AbsolutePathBuf;
     use pretty_assertions::assert_eq;
     use std::sync::Arc;
     use tempfile::tempdir;
 
-    const TEST_ID_TOKEN: &str = concat!(
-        "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.",
-        "eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF91c2VyX2lk",
-        "IjpudWxsLCJjaGF0Z3B0X2FjY291bnRfaWQiOiJhY2NvdW50X2lkIn19.",
-        "c2ln",
-    );
-
-    async fn install_cached_agent_task_auth(
+    async fn install_chatgpt_auth(
         session: &mut Session,
         turn_context: &mut TurnContext,
-        chatgpt_base_url: String,
+        _chatgpt_base_url: String,
     ) {
-        let auth_dir = tempdir().expect("temp auth dir");
-        let auth_json = AuthDotJson {
-            auth_mode: Some(codex_app_server_protocol::AuthMode::Chatgpt),
-            openai_api_key: None,
-            tokens: Some(TokenData {
-                id_token: IdTokenInfo {
-                    email: None,
-                    chatgpt_plan_type: None,
-                    chatgpt_user_id: None,
-                    chatgpt_account_id: Some("account_id".to_string()),
-                    chatgpt_account_is_fedramp: false,
-                    raw_jwt: TEST_ID_TOKEN.to_string(),
-                },
-                access_token: "Access Token".to_string(),
-                refresh_token: "test".to_string(),
-                account_id: Some("account_id".to_string()),
-            }),
-            last_refresh: Some(Utc::now()),
-            agent_identity: None,
-        };
-        save_auth(auth_dir.path(), &auth_json, AuthCredentialsStoreMode::File)
-            .expect("save test auth");
-        let auth = CodexAuth::from_auth_storage(auth_dir.path(), AuthCredentialsStoreMode::File)
-            .expect("load test auth")
-            .expect("test auth");
+        let auth = CodexAuth::create_dummy_chatgpt_auth_for_testing();
         let auth_manager = AuthManager::from_auth_for_testing(auth);
-        let agent_identity_manager = Arc::new(AgentIdentityManager::new_for_tests(
-            Arc::clone(&auth_manager),
-            /*feature_enabled*/ true,
-            chatgpt_base_url,
-            SessionSource::Exec,
-        ));
-        let stored_identity = agent_identity_manager
-            .seed_generated_identity_for_tests("agent-123")
-            .await
-            .expect("seed test identity");
+        auth_manager
+            .set_chatgpt_backend_base_url(Some("https://chatgpt.com/backend-api".to_string()));
         session.services.auth_manager = Arc::clone(&auth_manager);
-        session.services.agent_identity_manager = agent_identity_manager;
         turn_context.auth_manager = Some(auth_manager);
-        session
-            .cache_agent_task_for_tests(RegisteredAgentTask {
-                agent_runtime_id: stored_identity.agent_runtime_id,
-                task_id: "task-123".to_string(),
-                registered_at: "2026-04-15T00:00:00Z".to_string(),
-            })
-            .await;
     }
 
     #[tokio::test]
@@ -572,7 +508,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_uploaded_local_argument_value_uses_agent_assertion_for_cached_task() {
+    async fn build_uploaded_local_argument_value_uses_chatgpt_bearer_auth() {
         use wiremock::Mock;
         use wiremock::MockServer;
         use wiremock::ResponseTemplate;
@@ -584,7 +520,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/backend-api/files"))
-            .and(header_regex("authorization", r"^AgentAssertion .+"))
+            .and(header_regex("authorization", r"^Bearer .+"))
             .and(body_json(serde_json::json!({
                 "file_name": "file_report.csv",
                 "file_size": 5,
@@ -605,7 +541,7 @@ mod tests {
             .await;
         Mock::given(method("POST"))
             .and(path("/backend-api/files/file_123/uploaded"))
-            .and(header_regex("authorization", r"^AgentAssertion .+"))
+            .and(header_regex("authorization", r"^Bearer .+"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "status": "success",
                 "download_url": format!("{}/download/file_123", server.uri()),
@@ -618,7 +554,6 @@ mod tests {
             .await;
 
         let (mut session, mut turn_context) = make_session_and_context().await;
-        let auth = CodexAuth::create_dummy_chatgpt_auth_for_testing();
         let dir = tempdir().expect("temp dir");
         let local_path = dir.path().join("file_report.csv");
         tokio::fs::write(&local_path, b"hello")
@@ -629,7 +564,13 @@ mod tests {
         let mut config = (*turn_context.config).clone();
         config.chatgpt_base_url = format!("{}/backend-api", server.uri());
         turn_context.config = Arc::new(config);
-        install_cached_agent_task_auth(&mut session, &mut turn_context, server.uri()).await;
+        install_chatgpt_auth(&mut session, &mut turn_context, server.uri()).await;
+        let auth = session
+            .services
+            .auth_manager
+            .auth()
+            .await
+            .expect("test auth");
 
         let rewritten = build_uploaded_local_argument_value(
             &session,
