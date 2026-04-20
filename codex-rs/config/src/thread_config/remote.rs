@@ -347,7 +347,10 @@ mod tests {
         let loaded = loader
             .load(ThreadConfigContext {
                 thread_id: Some("thread-1".to_string()),
-                cwd: Some("/workspace/project".into()),
+                cwd: Some(
+                    AbsolutePathBuf::from_absolute_path_checked("/workspace/project")
+                        .expect("absolute cwd"),
+                ),
             })
             .await;
 
