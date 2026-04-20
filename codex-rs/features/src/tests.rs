@@ -139,16 +139,13 @@ fn request_permissions_tool_is_under_development() {
 }
 
 #[test]
-fn terminal_resize_reflow_is_under_development() {
+fn terminal_resize_reflow_is_stable_and_enabled_by_default() {
     assert_eq!(
         feature_for_key("terminal_resize_reflow"),
         Some(Feature::TerminalResizeReflow)
     );
-    assert_eq!(
-        Feature::TerminalResizeReflow.stage(),
-        Stage::UnderDevelopment
-    );
-    assert_eq!(Feature::TerminalResizeReflow.default_enabled(), false);
+    assert_eq!(Feature::TerminalResizeReflow.stage(), Stage::Stable);
+    assert_eq!(Feature::TerminalResizeReflow.default_enabled(), true);
 }
 
 #[test]

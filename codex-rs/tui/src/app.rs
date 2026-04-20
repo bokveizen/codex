@@ -10713,11 +10713,12 @@ guardian_approval = true
     }
 
     #[tokio::test]
-    async fn resize_reflow_disabled_by_default_keeps_old_resize_behavior() {
+    async fn resize_reflow_explicitly_disabled_keeps_old_resize_behavior() {
         let mut app = make_test_app().await;
         let frame_requester = crate::tui::FrameRequester::test_dummy();
         let size = Size::new(120, 40);
 
+        let _ = app.config.features.disable(Feature::TerminalResizeReflow);
         assert!(!app.terminal_resize_reflow_enabled());
 
         app.transcript_reflow
@@ -10793,6 +10794,7 @@ guardian_approval = true
     async fn disabled_resize_reflow_does_not_mark_stream_final_reflow() {
         let mut app = make_test_app().await;
         let frame_requester = crate::tui::FrameRequester::test_dummy();
+        let _ = app.config.features.disable(Feature::TerminalResizeReflow);
 
         app.transcript_cells.push(Arc::new(AgentMessageCell::new(
             vec![Line::from("already emitted stream line")],
