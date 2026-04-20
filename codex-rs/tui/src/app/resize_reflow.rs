@@ -68,22 +68,20 @@ impl App {
         self.transcript_reflow.schedule_debounced()
     }
 
-    /// After stream consolidation, schedule a follow-up reflow if one ran mid-stream.
-    pub(super) fn maybe_finish_stream_reflow(&mut self, tui: &mut tui::Tui) {
+    /// After stream consolidation, force a follow-up reflow if the stream saw a resize.
+    pub(super) fn maybe_finish_stream_reflow(&mut self, tui: &mut tui::Tui) -> Result<()> {
         if !self.terminal_resize_reflow_enabled() {
             self.transcript_reflow.clear();
-            return;
+            return Ok(());
         }
-        if self.transcript_reflow.take_ran_during_stream() {
-            if self.schedule_resize_reflow() {
-                tui.frame_requester().schedule_frame();
-            } else {
-                tui.frame_requester()
-                    .schedule_frame_in(TRANSCRIPT_REFLOW_DEBOUNCE);
-            }
+
+        if self.transcript_reflow.take_stream_finish_reflow_needed() {
+            self.schedule_immediate_resize_reflow(tui);
+            self.maybe_run_resize_reflow(tui)?;
         } else if self.transcript_reflow.pending_is_due(Instant::now()) {
             tui.frame_requester().schedule_frame();
         }
+        Ok(())
     }
 
     fn schedule_immediate_resize_reflow(&mut self, tui: &mut tui::Tui) {
@@ -103,7 +101,7 @@ impl App {
         self.schedule_immediate_resize_reflow(tui);
         self.maybe_run_resize_reflow(tui)?;
         if !self.transcript_reflow.has_pending_reflow() {
-            self.transcript_reflow.clear_ran_during_stream();
+            self.transcript_reflow.clear_stream_flags();
         }
         Ok(())
     }
@@ -118,6 +116,9 @@ impl App {
         if width.changed {
             self.chat_widget.on_terminal_resize(size.width);
             if self.terminal_resize_reflow_enabled() {
+                if self.should_mark_reflow_as_stream_time() {
+                    self.transcript_reflow.mark_resize_requested_during_stream();
+                }
                 if self.schedule_resize_reflow() {
                     frame_requester.schedule_frame();
                 } else {

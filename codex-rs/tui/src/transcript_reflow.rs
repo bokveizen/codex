@@ -10,6 +10,7 @@ pub(crate) struct TranscriptReflowState {
     last_render_width: Option<u16>,
     pending_until: Option<Instant>,
     ran_during_stream: bool,
+    resize_requested_during_stream: bool,
 }
 
 impl TranscriptReflowState {
@@ -72,14 +73,20 @@ impl TranscriptReflowState {
         self.ran_during_stream = true;
     }
 
-    pub(crate) fn take_ran_during_stream(&mut self) -> bool {
-        let ran = self.ran_during_stream;
-        self.ran_during_stream = false;
-        ran
+    pub(crate) fn mark_resize_requested_during_stream(&mut self) {
+        self.resize_requested_during_stream = true;
     }
 
-    pub(crate) fn clear_ran_during_stream(&mut self) {
+    pub(crate) fn take_stream_finish_reflow_needed(&mut self) -> bool {
+        let needed = self.ran_during_stream || self.resize_requested_during_stream;
         self.ran_during_stream = false;
+        self.resize_requested_during_stream = false;
+        needed
+    }
+
+    pub(crate) fn clear_stream_flags(&mut self) {
+        self.ran_during_stream = false;
+        self.resize_requested_during_stream = false;
     }
 }
 
@@ -111,5 +118,34 @@ mod tests {
         state.set_due_for_test();
 
         assert!(state.schedule_debounced());
+    }
+
+    #[test]
+    fn take_stream_finish_reflow_needed_drains_resize_request() {
+        let mut state = TranscriptReflowState::default();
+        state.mark_resize_requested_during_stream();
+
+        assert!(state.take_stream_finish_reflow_needed());
+        assert!(!state.take_stream_finish_reflow_needed());
+    }
+
+    #[test]
+    fn take_stream_finish_reflow_needed_drains_ran_during_stream() {
+        let mut state = TranscriptReflowState::default();
+        state.mark_ran_during_stream();
+
+        assert!(state.take_stream_finish_reflow_needed());
+        assert!(!state.take_stream_finish_reflow_needed());
+    }
+
+    #[test]
+    fn clear_resets_stream_reflow_flags() {
+        let mut state = TranscriptReflowState::default();
+        state.mark_ran_during_stream();
+        state.mark_resize_requested_during_stream();
+
+        state.clear();
+
+        assert!(!state.take_stream_finish_reflow_needed());
     }
 }

@@ -4635,12 +4635,12 @@ impl App {
                         tui.frame_requester().schedule_frame();
                     }
 
-                    self.maybe_finish_stream_reflow(tui);
+                    self.maybe_finish_stream_reflow(tui)?;
                 } else {
                     tracing::debug!(
                         "ConsolidateAgentMessage: no cells to consolidate(start={start}, end={end})",
                     );
-                    self.maybe_finish_stream_reflow(tui);
+                    self.maybe_finish_stream_reflow(tui)?;
                 }
             }
             AppEvent::ConsolidateProposedPlan(source) => {
@@ -4673,7 +4673,7 @@ impl App {
                         tui.terminal.last_known_screen_size.width,
                     );
 
-                    self.maybe_finish_stream_reflow(tui);
+                    self.maybe_finish_stream_reflow(tui)?;
                 }
             }
             AppEvent::ApplyThreadRollback { num_turns } => {
@@ -10746,6 +10746,66 @@ guardian_approval = true
         assert!(
             app.should_mark_reflow_as_stream_time(),
             "reflow in the pre-consolidation window should still be treated as stream-time",
+        );
+    }
+
+    #[tokio::test]
+    async fn resize_during_stream_marks_final_reflow_needed() {
+        let mut app = make_test_app().await;
+        let _ = app.config.features.enable(Feature::TerminalResizeReflow);
+        let frame_requester = crate::tui::FrameRequester::test_dummy();
+
+        app.transcript_cells.push(Arc::new(AgentMessageCell::new(
+            vec![Line::from("already emitted stream line")],
+            /*is_first_line*/ false,
+        )));
+        app.transcript_reflow
+            .set_last_render_width_for_test(/*width*/ 100);
+
+        app.handle_draw_size_change(Size::new(120, 40), Size::new(120, 40), &frame_requester);
+
+        assert!(
+            app.transcript_reflow.take_stream_finish_reflow_needed(),
+            "resize during an active or unconsolidated stream should force final reflow",
+        );
+    }
+
+    #[tokio::test]
+    async fn initial_width_does_not_mark_stream_final_reflow() {
+        let mut app = make_test_app().await;
+        let _ = app.config.features.enable(Feature::TerminalResizeReflow);
+        let frame_requester = crate::tui::FrameRequester::test_dummy();
+
+        app.transcript_cells.push(Arc::new(AgentMessageCell::new(
+            vec![Line::from("already emitted stream line")],
+            /*is_first_line*/ false,
+        )));
+
+        app.handle_draw_size_change(Size::new(120, 40), Size::new(120, 40), &frame_requester);
+
+        assert!(
+            !app.transcript_reflow.take_stream_finish_reflow_needed(),
+            "initial render width should not be treated as a stream resize",
+        );
+    }
+
+    #[tokio::test]
+    async fn disabled_resize_reflow_does_not_mark_stream_final_reflow() {
+        let mut app = make_test_app().await;
+        let frame_requester = crate::tui::FrameRequester::test_dummy();
+
+        app.transcript_cells.push(Arc::new(AgentMessageCell::new(
+            vec![Line::from("already emitted stream line")],
+            /*is_first_line*/ false,
+        )));
+        app.transcript_reflow
+            .set_last_render_width_for_test(/*width*/ 100);
+
+        app.handle_draw_size_change(Size::new(120, 40), Size::new(120, 40), &frame_requester);
+
+        assert!(
+            !app.transcript_reflow.take_stream_finish_reflow_needed(),
+            "disabled resize reflow should not schedule final stream repair",
         );
     }
 
