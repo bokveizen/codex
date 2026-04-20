@@ -3367,6 +3367,10 @@ impl ChatWidget {
     /// When there are queued user messages, restore them into the composer
     /// separated by newlines rather than auto‑submitting the next one.
     fn on_interrupted_turn(&mut self, reason: TurnAbortReason) {
+        // Preserve any partial assistant response before the generic turn
+        // cleanup drops the stream controller that owns its markdown source.
+        self.flush_answer_stream_with_separator();
+
         // Finalize, log a gentle prompt, and clear running state.
         self.finalize_turn();
         let send_pending_steers_immediately = self.submit_pending_steers_after_interrupt;

@@ -1140,6 +1140,60 @@ async fn interrupt_drops_stream_deltas_until_turn_aborted() {
 }
 
 #[tokio::test]
+async fn interrupted_turn_consolidates_partial_answer_stream_before_notice() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    let cwd = chat.config.cwd.to_path_buf();
+    let partial = "This interrupted paragraph was already emitted before the turn stopped.\n";
+
+    let mut controller =
+        crate::streaming::controller::StreamController::new(Some(80), cwd.as_path());
+    assert!(controller.push(partial));
+    let (emitted_cell, idle) = controller.on_commit_tick_batch(usize::MAX);
+    assert!(emitted_cell.is_some(), "expected an emitted stream cell");
+    assert!(idle, "expected the stream queue to be drained");
+    chat.stream_controller = Some(controller);
+
+    chat.handle_codex_event(Event {
+        id: "abort-1".into(),
+        msg: EventMsg::TurnAborted(codex_protocol::protocol::TurnAbortedEvent {
+            turn_id: Some("turn-1".to_string()),
+            reason: TurnAbortReason::Interrupted,
+            completed_at: None,
+            duration_ms: None,
+        }),
+    });
+
+    let mut saw_consolidate = false;
+    let mut saw_interrupt_notice = false;
+    while let Ok(event) = rx.try_recv() {
+        match event {
+            AppEvent::ConsolidateAgentMessage { source, .. } => {
+                assert!(
+                    !saw_interrupt_notice,
+                    "partial stream must consolidate before the interrupt notice"
+                );
+                assert_eq!(source, partial);
+                saw_consolidate = true;
+            }
+            AppEvent::InsertHistoryCell(cell) => {
+                let text = lines_to_single_string(&cell.display_lines(/*width*/ 80));
+                if text.contains("Conversation interrupted") {
+                    assert!(
+                        saw_consolidate,
+                        "interrupt notice should be inserted after stream consolidation"
+                    );
+                    saw_interrupt_notice = true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    assert!(saw_consolidate, "expected interrupted stream consolidation");
+    assert!(saw_interrupt_notice, "expected interrupted-turn notice");
+}
+
+#[tokio::test]
 async fn app_event_interrupt_prepares_local_stream_cleanup() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     let cwd = chat.config.cwd.to_path_buf();
