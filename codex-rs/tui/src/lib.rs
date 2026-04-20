@@ -732,12 +732,13 @@ pub async fn run_main(
         }
     };
 
+    let runtime_paths = ExecServerRuntimePaths::from_optional_paths(
+        arg0_paths.codex_self_exe.clone(),
+        arg0_paths.codex_linux_sandbox_exe.clone(),
+    )?;
     let environment_manager = Arc::new(EnvironmentManager::new(EnvironmentManagerArgs {
         exec_server_url: std::env::var(CODEX_EXEC_SERVER_URL_ENV_VAR).ok(),
-        local_runtime_paths: Some(ExecServerRuntimePaths::from_optional_paths(
-            arg0_paths.codex_self_exe.clone(),
-            arg0_paths.codex_linux_sandbox_exe.clone(),
-        )?),
+        local_runtime_paths: Some(runtime_paths.clone()),
     }));
     let cwd = cli.cwd.clone();
     let config_cwd =
@@ -852,6 +853,13 @@ pub async fn run_main(
         cloud_requirements.clone(),
     )
     .await;
+    let environment_manager = Arc::new(
+        EnvironmentManager::try_new(config.environment_manager_args(
+            std::env::var(CODEX_EXEC_SERVER_URL_ENV_VAR).ok(),
+            Some(runtime_paths),
+        )?)
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?,
+    );
 
     #[allow(clippy::print_stderr)]
     match check_execpolicy_for_warnings(&config.config_layer_stack).await {

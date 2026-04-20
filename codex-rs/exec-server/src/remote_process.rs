@@ -11,6 +11,7 @@ use crate::ExecServerError;
 use crate::StartedExecProcess;
 use crate::client::LazyRemoteExecServerClient;
 use crate::client::Session;
+use crate::client_api::RemoteExecServerTransport;
 use crate::protocol::ExecParams;
 use crate::protocol::ReadResponse;
 use crate::protocol::WriteResponse;
@@ -25,10 +26,10 @@ struct RemoteExecProcess {
 }
 
 impl RemoteProcess {
-    pub(crate) fn new(websocket_url: String) -> Self {
+    pub(crate) fn new(transport: RemoteExecServerTransport) -> Self {
         trace!("remote process new");
         Self {
-            client: LazyRemoteExecServerClient::new(websocket_url),
+            client: LazyRemoteExecServerClient::new(transport),
         }
     }
 }

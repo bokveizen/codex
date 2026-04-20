@@ -8879,6 +8879,7 @@ mod tests {
             op_rx.try_recv(),
             Ok(Op::OverrideTurnContext {
                 cwd: None,
+                environments: None,
                 approval_policy: Some(guardian_approvals.approval_policy),
                 approvals_reviewer: Some(guardian_approvals.approvals_reviewer),
                 sandbox_policy: Some(guardian_approvals.sandbox_policy.clone()),
@@ -8970,6 +8971,7 @@ mod tests {
             op_rx.try_recv(),
             Ok(Op::OverrideTurnContext {
                 cwd: None,
+                environments: None,
                 approval_policy: None,
                 approvals_reviewer: Some(ApprovalsReviewer::User),
                 sandbox_policy: None,
@@ -9049,6 +9051,7 @@ mod tests {
             op_rx.try_recv(),
             Ok(Op::OverrideTurnContext {
                 cwd: None,
+                environments: None,
                 approval_policy: Some(guardian_approvals.approval_policy),
                 approvals_reviewer: Some(guardian_approvals.approvals_reviewer),
                 sandbox_policy: Some(guardian_approvals.sandbox_policy.clone()),
@@ -9106,6 +9109,7 @@ mod tests {
             op_rx.try_recv(),
             Ok(Op::OverrideTurnContext {
                 cwd: None,
+                environments: None,
                 approval_policy: None,
                 approvals_reviewer: Some(ApprovalsReviewer::User),
                 sandbox_policy: None,
@@ -9165,6 +9169,7 @@ mod tests {
             op_rx.try_recv(),
             Ok(Op::OverrideTurnContext {
                 cwd: None,
+                environments: None,
                 approval_policy: Some(guardian_approvals.approval_policy),
                 approvals_reviewer: Some(guardian_approvals.approvals_reviewer),
                 sandbox_policy: Some(guardian_approvals.sandbox_policy.clone()),
@@ -9252,6 +9257,7 @@ guardian_approval = true
             op_rx.try_recv(),
             Ok(Op::OverrideTurnContext {
                 cwd: None,
+                environments: None,
                 approval_policy: None,
                 approvals_reviewer: Some(ApprovalsReviewer::User),
                 sandbox_policy: None,
@@ -10887,7 +10893,7 @@ guardian_approval = true
             backtrack_render_pending: false,
             feedback: codex_feedback::CodexFeedback::new(),
             feedback_audience: FeedbackAudience::External,
-            environment_manager: Arc::new(EnvironmentManager::new(/*exec_server_url*/ None)),
+            environment_manager: Arc::new(EnvironmentManager::new(/*config*/ None)),
             remote_app_server_url: None,
             remote_app_server_auth_token: None,
             pending_update_action: None,
@@ -10944,9 +10950,7 @@ guardian_approval = true
                 backtrack_render_pending: false,
                 feedback: codex_feedback::CodexFeedback::new(),
                 feedback_audience: FeedbackAudience::External,
-                environment_manager: Arc::new(EnvironmentManager::new(
-                    /*exec_server_url*/ None,
-                )),
+                environment_manager: Arc::new(EnvironmentManager::new(/*config*/ None)),
                 remote_app_server_url: None,
                 remote_app_server_auth_token: None,
                 pending_update_action: None,

@@ -15,6 +15,7 @@ use crate::FileSystemSandboxContext;
 use crate::ReadDirectoryEntry;
 use crate::RemoveOptions;
 use crate::client::LazyRemoteExecServerClient;
+use crate::client_api::RemoteExecServerTransport;
 use crate::protocol::FsCopyParams;
 use crate::protocol::FsCreateDirectoryParams;
 use crate::protocol::FsGetMetadataParams;
@@ -32,10 +33,10 @@ pub(crate) struct RemoteFileSystem {
 }
 
 impl RemoteFileSystem {
-    pub(crate) fn new(websocket_url: String) -> Self {
+    pub(crate) fn new(transport: RemoteExecServerTransport) -> Self {
         trace!("remote fs new");
         Self {
-            client: LazyRemoteExecServerClient::new(websocket_url),
+            client: LazyRemoteExecServerClient::new(transport),
         }
     }
 }

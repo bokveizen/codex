@@ -16,7 +16,6 @@ pub use cli::ReviewArgs;
 use codex_app_server_client::CODEX_EXEC_SERVER_URL_ENV_VAR;
 use codex_app_server_client::DEFAULT_IN_PROCESS_CHANNEL_CAPACITY;
 use codex_app_server_client::EnvironmentManager;
-use codex_app_server_client::EnvironmentManagerArgs;
 use codex_app_server_client::ExecServerRuntimePaths;
 use codex_app_server_client::InProcessAppServerClient;
 use codex_app_server_client::InProcessClientStartArgs;
@@ -494,10 +493,12 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         cloud_requirements: run_cloud_requirements,
         feedback: CodexFeedback::new(),
         log_db: None,
-        environment_manager: std::sync::Arc::new(EnvironmentManager::new(EnvironmentManagerArgs {
-            exec_server_url: std::env::var(CODEX_EXEC_SERVER_URL_ENV_VAR).ok(),
-            local_runtime_paths: Some(local_runtime_paths),
-        })),
+        environment_manager: std::sync::Arc::new(EnvironmentManager::try_new(
+            config.environment_manager_args(
+                std::env::var(CODEX_EXEC_SERVER_URL_ENV_VAR).ok(),
+                Some(local_runtime_paths),
+            )?,
+        )?),
         config_warnings,
         session_source: SessionSource::Exec,
         enable_codex_api_key_env: true,

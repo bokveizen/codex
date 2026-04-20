@@ -1,6 +1,7 @@
 use crate::contextual_user_message::ENVIRONMENT_CONTEXT_FRAGMENT;
 use crate::session::turn_context::TurnContext;
 use crate::shell::Shell;
+use codex_features::Feature;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::TurnContextItem;
 use codex_protocol::protocol::TurnContextNetworkItem;
@@ -12,11 +13,19 @@ use std::path::PathBuf;
 #[serde(rename = "environment_context", rename_all = "snake_case")]
 pub(crate) struct EnvironmentContext {
     pub cwd: Option<PathBuf>,
+    pub environments: Option<Vec<EnvironmentContextEnvironment>>,
     pub shell: Shell,
     pub current_date: Option<String>,
     pub timezone: Option<String>,
     pub network: Option<NetworkContext>,
     pub subagents: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) struct EnvironmentContextEnvironment {
+    pub id: String,
+    pub cwd: PathBuf,
+    pub primary: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -34,8 +43,29 @@ impl EnvironmentContext {
         network: Option<NetworkContext>,
         subagents: Option<String>,
     ) -> Self {
+        Self::new_with_environments(
+            cwd,
+            /*environments*/ None,
+            shell,
+            current_date,
+            timezone,
+            network,
+            subagents,
+        )
+    }
+
+    fn new_with_environments(
+        cwd: Option<PathBuf>,
+        environments: Option<Vec<EnvironmentContextEnvironment>>,
+        shell: Shell,
+        current_date: Option<String>,
+        timezone: Option<String>,
+        network: Option<NetworkContext>,
+        subagents: Option<String>,
+    ) -> Self {
         Self {
             cwd,
+            environments,
             shell,
             current_date,
             timezone,
@@ -50,6 +80,7 @@ impl EnvironmentContext {
     pub fn equals_except_shell(&self, other: &EnvironmentContext) -> bool {
         let EnvironmentContext {
             cwd,
+            environments,
             current_date,
             timezone,
             network,
@@ -57,6 +88,7 @@ impl EnvironmentContext {
             shell: _,
         } = other;
         self.cwd == *cwd
+            && self.environments == *environments
             && self.current_date == *current_date
             && self.timezone == *timezone
             && self.network == *network
@@ -82,8 +114,9 @@ impl EnvironmentContext {
         } else {
             before_network
         };
-        EnvironmentContext::new(
+        EnvironmentContext::new_with_environments(
             cwd,
+            Self::environments_from_turn_context(after),
             shell.clone(),
             current_date,
             timezone,
@@ -93,8 +126,9 @@ impl EnvironmentContext {
     }
 
     pub fn from_turn_context(turn_context: &TurnContext, shell: &Shell) -> Self {
-        Self::new(
+        Self::new_with_environments(
             Some(turn_context.cwd.to_path_buf()),
+            Self::environments_from_turn_context(turn_context),
             shell.clone(),
             turn_context.current_date.clone(),
             turn_context.timezone.clone(),
@@ -155,6 +189,30 @@ impl EnvironmentContext {
             denied_domains: denied_domains.clone(),
         })
     }
+
+    fn environments_from_turn_context(
+        turn_context: &TurnContext,
+    ) -> Option<Vec<EnvironmentContextEnvironment>> {
+        if !turn_context.features.enabled(Feature::MultiEnvironmentTools) {
+            return None;
+        }
+        let environments = turn_context.environments.as_ref()?;
+        if environments.is_empty() {
+            return None;
+        }
+
+        Some(
+            environments
+                .iter()
+                .enumerate()
+                .map(|(index, environment)| EnvironmentContextEnvironment {
+                    id: environment.environment_id.clone(),
+                    cwd: environment.cwd.to_path_buf(),
+                    primary: index == 0,
+                })
+                .collect(),
+        )
+    }
 }
 
 impl EnvironmentContext {
@@ -172,6 +230,26 @@ impl EnvironmentContext {
         let mut lines = Vec::new();
         if let Some(cwd) = self.cwd {
             lines.push(format!("  <cwd>{}</cwd>", cwd.to_string_lossy()));
+        }
+        if let Some(environments) = self.environments {
+            lines.push("  <environments>".to_string());
+            for environment in environments {
+                let primary = if environment.primary {
+                    " primary=\"true\""
+                } else {
+                    ""
+                };
+                lines.push(format!(
+                    "    <environment id=\"{}\"{}>",
+                    environment.id, primary
+                ));
+                lines.push(format!(
+                    "      <cwd>{}</cwd>",
+                    environment.cwd.to_string_lossy()
+                ));
+                lines.push("    </environment>".to_string());
+            }
+            lines.push("  </environments>".to_string());
         }
 
         let shell_name = self.shell.name();
