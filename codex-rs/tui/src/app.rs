@@ -298,6 +298,28 @@ fn guardian_approvals_mode() -> GuardianApprovalsMode {
         sandbox_policy: SandboxPolicy::new_workspace_write_policy(),
     }
 }
+
+#[cfg(test)]
+fn override_turn_context_op(
+    approval_policy: Option<AskForApproval>,
+    approvals_reviewer: Option<ApprovalsReviewer>,
+    sandbox_policy: Option<SandboxPolicy>,
+) -> Op {
+    Op::OverrideTurnContext {
+        cwd: None,
+        environments: None,
+        approval_policy,
+        approvals_reviewer,
+        sandbox_policy,
+        windows_sandbox_level: None,
+        model: None,
+        effort: None,
+        summary: None,
+        service_tier: None,
+        collaboration_mode: None,
+        personality: None,
+    }
+}
 /// Baseline cadence for periodic stream commit animation ticks.
 ///
 /// Smooth-mode streaming drains one line per tick, so this interval controls
@@ -8877,20 +8899,11 @@ mod tests {
         assert_eq!(app.runtime_sandbox_policy_override, None);
         assert_eq!(
             op_rx.try_recv(),
-            Ok(Op::OverrideTurnContext {
-                cwd: None,
-                environments: None,
-                approval_policy: Some(guardian_approvals.approval_policy),
-                approvals_reviewer: Some(guardian_approvals.approvals_reviewer),
-                sandbox_policy: Some(guardian_approvals.sandbox_policy.clone()),
-                windows_sandbox_level: None,
-                model: None,
-                effort: None,
-                summary: None,
-                service_tier: None,
-                collaboration_mode: None,
-                personality: None,
-            })
+            Ok(override_turn_context_op(
+                Some(guardian_approvals.approval_policy),
+                Some(guardian_approvals.approvals_reviewer),
+                Some(guardian_approvals.sandbox_policy.clone()),
+            ))
         );
         let cell = match app_event_rx.try_recv() {
             Ok(AppEvent::InsertHistoryCell(cell)) => cell,
@@ -8969,20 +8982,11 @@ mod tests {
         assert_eq!(app.runtime_approval_policy_override, None);
         assert_eq!(
             op_rx.try_recv(),
-            Ok(Op::OverrideTurnContext {
-                cwd: None,
-                environments: None,
-                approval_policy: None,
-                approvals_reviewer: Some(ApprovalsReviewer::User),
-                sandbox_policy: None,
-                windows_sandbox_level: None,
-                model: None,
-                effort: None,
-                summary: None,
-                service_tier: None,
-                collaboration_mode: None,
-                personality: None,
-            })
+            Ok(override_turn_context_op(
+                /*approval_policy*/ None,
+                Some(ApprovalsReviewer::User),
+                /*sandbox_policy*/ None,
+            ))
         );
         let cell = match app_event_rx.try_recv() {
             Ok(AppEvent::InsertHistoryCell(cell)) => cell,
@@ -9049,20 +9053,11 @@ mod tests {
         );
         assert_eq!(
             op_rx.try_recv(),
-            Ok(Op::OverrideTurnContext {
-                cwd: None,
-                environments: None,
-                approval_policy: Some(guardian_approvals.approval_policy),
-                approvals_reviewer: Some(guardian_approvals.approvals_reviewer),
-                sandbox_policy: Some(guardian_approvals.sandbox_policy.clone()),
-                windows_sandbox_level: None,
-                model: None,
-                effort: None,
-                summary: None,
-                service_tier: None,
-                collaboration_mode: None,
-                personality: None,
-            })
+            Ok(override_turn_context_op(
+                Some(guardian_approvals.approval_policy),
+                Some(guardian_approvals.approvals_reviewer),
+                Some(guardian_approvals.sandbox_policy.clone()),
+            ))
         );
 
         let config = std::fs::read_to_string(codex_home.path().join("config.toml"))?;
@@ -9107,20 +9102,11 @@ mod tests {
         );
         assert_eq!(
             op_rx.try_recv(),
-            Ok(Op::OverrideTurnContext {
-                cwd: None,
-                environments: None,
-                approval_policy: None,
-                approvals_reviewer: Some(ApprovalsReviewer::User),
-                sandbox_policy: None,
-                windows_sandbox_level: None,
-                model: None,
-                effort: None,
-                summary: None,
-                service_tier: None,
-                collaboration_mode: None,
-                personality: None,
-            })
+            Ok(override_turn_context_op(
+                /*approval_policy*/ None,
+                Some(ApprovalsReviewer::User),
+                /*sandbox_policy*/ None,
+            ))
         );
         assert!(
             app_event_rx.try_recv().is_err(),
@@ -9167,20 +9153,11 @@ mod tests {
         );
         assert_eq!(
             op_rx.try_recv(),
-            Ok(Op::OverrideTurnContext {
-                cwd: None,
-                environments: None,
-                approval_policy: Some(guardian_approvals.approval_policy),
-                approvals_reviewer: Some(guardian_approvals.approvals_reviewer),
-                sandbox_policy: Some(guardian_approvals.sandbox_policy.clone()),
-                windows_sandbox_level: None,
-                model: None,
-                effort: None,
-                summary: None,
-                service_tier: None,
-                collaboration_mode: None,
-                personality: None,
-            })
+            Ok(override_turn_context_op(
+                Some(guardian_approvals.approval_policy),
+                Some(guardian_approvals.approvals_reviewer),
+                Some(guardian_approvals.sandbox_policy.clone()),
+            ))
         );
 
         let config = std::fs::read_to_string(codex_home.path().join("config.toml"))?;
@@ -9255,20 +9232,11 @@ guardian_approval = true
         );
         assert_eq!(
             op_rx.try_recv(),
-            Ok(Op::OverrideTurnContext {
-                cwd: None,
-                environments: None,
-                approval_policy: None,
-                approvals_reviewer: Some(ApprovalsReviewer::User),
-                sandbox_policy: None,
-                windows_sandbox_level: None,
-                model: None,
-                effort: None,
-                summary: None,
-                service_tier: None,
-                collaboration_mode: None,
-                personality: None,
-            })
+            Ok(override_turn_context_op(
+                /*approval_policy*/ None,
+                Some(ApprovalsReviewer::User),
+                /*sandbox_policy*/ None,
+            ))
         );
         let cell = match app_event_rx.try_recv() {
             Ok(AppEvent::InsertHistoryCell(cell)) => cell,
@@ -9902,6 +9870,7 @@ guardian_approval = true
             turn_id: None,
             trace_id: None,
             cwd: test_path_buf("/tmp/agent"),
+            environments: None,
             current_date: None,
             timezone: None,
             approval_policy: primary_session.approval_policy,
