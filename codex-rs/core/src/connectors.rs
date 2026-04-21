@@ -221,9 +221,7 @@ pub async fn list_accessible_connectors_from_mcp_tools_with_options_and_status(
     }
 
     let background_authorization_header_value = if let Some(auth) = auth.as_ref() {
-        auth_manager
-            .chatgpt_authorization_header_for_auth(auth)
-            .await
+        auth.authorization_header_value().ok()
     } else {
         None
     };
@@ -436,16 +434,11 @@ async fn list_directory_connectors_for_tool_suggest_with_auth(
     let access_token = token_data.access_token.clone();
     let account_id = account_id.to_string();
     let is_fedramp_account = token_data.id_token.is_fedramp_account();
-    let authorization_header_value = {
-        let auth_manager =
-            AuthManager::shared_from_config(config, /*enable_codex_api_key_env*/ false);
-        match auth {
-            Some(auth) if auth.is_chatgpt_auth() => auth_manager
-                .chatgpt_authorization_header_for_auth(auth)
-                .await
-                .unwrap_or_else(|| format!("Bearer {access_token}")),
-            _ => format!("Bearer {access_token}"),
-        }
+    let authorization_header_value = match auth {
+        Some(auth) if auth.uses_codex_backend() => auth
+            .authorization_header_value()
+            .unwrap_or_else(|_| format!("Bearer {access_token}")),
+        _ => format!("Bearer {access_token}"),
     };
     let is_workspace_account = token_data.id_token.is_workspace_account();
     let cache_key = AllConnectorsCacheKey::new(

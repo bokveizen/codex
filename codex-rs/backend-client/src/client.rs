@@ -151,10 +151,10 @@ impl Client {
     }
 
     pub fn from_auth(base_url: impl Into<String>, auth: &CodexAuth) -> Result<Self> {
-        let token = auth.get_token().map_err(anyhow::Error::from)?;
+        let authorization_header_value = auth.authorization_header_value()?;
         let mut client = Self::new(base_url)?
             .with_user_agent(get_codex_user_agent())
-            .with_bearer_token(token);
+            .with_authorization_header_value(authorization_header_value);
         if let Some(account_id) = auth.get_account_id() {
             client = client.with_chatgpt_account_id(account_id);
         }

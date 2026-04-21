@@ -92,9 +92,7 @@ pub async fn build_chatgpt_headers() -> HeaderMap {
     if let Some(auth_manager) = load_auth_manager(Some(base_url)).await
         && let Some(auth) = auth_manager.auth().await
     {
-        if let Some(authorization_header_value) = auth_manager
-            .chatgpt_authorization_header_for_auth(&auth)
-            .await
+        if let Ok(authorization_header_value) = auth.authorization_header_value()
             && let Ok(hv) = HeaderValue::from_str(&authorization_header_value)
         {
             headers.insert(AUTHORIZATION, hv);

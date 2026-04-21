@@ -5,6 +5,7 @@ use codex_login::AuthManager;
 use codex_login::CodexAuth;
 use codex_model_provider_info::ModelProviderInfo;
 
+use crate::bearer_auth_provider::AuthorizationHeaderAuthProvider;
 use crate::bearer_auth_provider::BearerAuthProvider;
 
 /// Returns the provider-scoped auth manager when this provider uses command-backed auth.
@@ -20,39 +21,39 @@ pub(crate) fn auth_manager_for_provider(
     }
 }
 
-fn bearer_auth_provider_from_auth(
+fn auth_provider_from_auth(
     auth: Option<&CodexAuth>,
     provider: &ModelProviderInfo,
-) -> codex_protocol::error::Result<BearerAuthProvider> {
+) -> codex_protocol::error::Result<SharedAuthProvider> {
     if let Some(api_key) = provider.api_key()? {
-        return Ok(BearerAuthProvider {
+        return Ok(Arc::new(BearerAuthProvider {
             token: Some(api_key),
             account_id: None,
             is_fedramp_account: false,
-        });
+        }));
     }
 
     if let Some(token) = provider.experimental_bearer_token.clone() {
-        return Ok(BearerAuthProvider {
+        return Ok(Arc::new(BearerAuthProvider {
             token: Some(token),
             account_id: None,
             is_fedramp_account: false,
-        });
+        }));
     }
 
     if let Some(auth) = auth {
-        let token = auth.get_token()?;
-        Ok(BearerAuthProvider {
-            token: Some(token),
+        let authorization_header_value = auth.authorization_header_value()?;
+        Ok(Arc::new(AuthorizationHeaderAuthProvider {
+            authorization_header_value: Some(authorization_header_value),
             account_id: auth.get_account_id(),
             is_fedramp_account: auth.is_fedramp_account(),
-        })
+        }))
     } else {
-        Ok(BearerAuthProvider {
+        Ok(Arc::new(BearerAuthProvider {
             token: None,
             account_id: None,
             is_fedramp_account: false,
-        })
+        }))
     }
 }
 
@@ -60,5 +61,5 @@ pub(crate) fn resolve_provider_auth(
     auth: Option<&CodexAuth>,
     provider: &ModelProviderInfo,
 ) -> codex_protocol::error::Result<SharedAuthProvider> {
-    Ok(Arc::new(bearer_auth_provider_from_auth(auth, provider)?))
+    auth_provider_from_auth(auth, provider)
 }

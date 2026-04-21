@@ -673,13 +673,10 @@ impl ModelClient {
         let api_provider = self.state.provider.api_provider().await?;
         let auth_manager = self.state.provider.auth_manager();
         let api_auth = match (auth_manager.as_ref(), auth.as_ref()) {
-            (Some(auth_manager), Some(auth))
-                if self.state.provider.info().requires_openai_auth && auth.is_chatgpt_auth() =>
+            (Some(_auth_manager), Some(auth))
+                if self.state.provider.info().requires_openai_auth && auth.uses_codex_backend() =>
             {
-                if let Some(authorization_header_value) = auth_manager
-                    .chatgpt_authorization_header_for_auth(auth)
-                    .await
-                {
+                if let Ok(authorization_header_value) = auth.authorization_header_value() {
                     debug!(
                         auth_mode = ?auth.api_auth_mode(),
                         "using auth manager authorization for downstream request"

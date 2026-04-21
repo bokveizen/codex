@@ -307,13 +307,10 @@ async fn send_track_events(
     let Some(auth) = auth_manager.auth().await else {
         return;
     };
-    if !auth.is_chatgpt_auth() {
+    if !auth.uses_codex_backend() {
         return;
     }
-    let Some(authorization_header_value) = auth_manager
-        .chatgpt_authorization_header_for_auth(&auth)
-        .await
-    else {
+    let Ok(authorization_header_value) = auth.authorization_header_value() else {
         return;
     };
     let Some(account_id) = auth.get_account_id() else {

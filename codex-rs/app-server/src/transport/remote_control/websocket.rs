@@ -746,7 +746,7 @@ pub(crate) async fn load_remote_control_auth(
             reloaded = true;
             continue;
         };
-        if !auth.is_chatgpt_auth() {
+        if !auth.uses_codex_backend() {
             break auth;
         }
         if auth.get_account_id().is_none() && !reloaded {
@@ -757,22 +757,19 @@ pub(crate) async fn load_remote_control_auth(
         break auth;
     };
 
-    if !auth.is_chatgpt_auth() {
+    if !auth.uses_codex_backend() {
         return Err(io::Error::new(
             ErrorKind::PermissionDenied,
             "remote control requires ChatGPT authentication; API key auth is not supported",
         ));
     }
 
-    let authorization_header_value = auth_manager
-        .chatgpt_authorization_header_for_auth(&auth)
-        .await
-        .ok_or_else(|| {
-            io::Error::new(
-                ErrorKind::PermissionDenied,
-                "remote control requires ChatGPT authentication",
-            )
-        })?;
+    let authorization_header_value = auth.authorization_header_value().map_err(|_| {
+        io::Error::new(
+            ErrorKind::PermissionDenied,
+            "remote control requires ChatGPT authentication",
+        )
+    })?;
 
     Ok(RemoteControlConnectionAuth {
         authorization_header_value,

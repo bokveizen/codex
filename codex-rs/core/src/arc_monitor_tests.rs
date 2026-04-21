@@ -10,7 +10,6 @@ use wiremock::MockServer;
 use wiremock::ResponseTemplate;
 use wiremock::matchers::body_json;
 use wiremock::matchers::header;
-use wiremock::matchers::header_regex;
 use wiremock::matchers::method;
 use wiremock::matchers::path;
 
@@ -59,9 +58,8 @@ async fn install_chatgpt_auth(
     turn_context: &mut TurnContext,
     _chatgpt_base_url: String,
 ) {
-    let auth = CodexAuth::create_dummy_chatgpt_auth_for_testing();
-    let auth_manager = AuthManager::from_auth_for_testing(auth);
-    auth_manager.set_chatgpt_backend_base_url(Some("https://chatgpt.com/backend-api".to_string()));
+    let auth_manager =
+        AuthManager::from_auth_for_testing(CodexAuth::create_dummy_chatgpt_auth_for_testing());
     session.services.auth_manager = Arc::clone(&auth_manager);
     turn_context.auth_manager = Some(auth_manager);
 }
@@ -297,7 +295,7 @@ async fn monitor_action_uses_chatgpt_bearer_auth() {
 
     Mock::given(method("POST"))
         .and(path("/codex/safety/arc"))
-        .and(header_regex("authorization", r"^Bearer .+"))
+        .and(header("authorization", "Bearer Access Token"))
         .and(body_json(serde_json::json!({
             "metadata": {
                 "codex_thread_id": session.conversation_id.to_string(),

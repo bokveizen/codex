@@ -476,10 +476,7 @@ pub async fn list_mcp_tools(sess: &Session, config: &Arc<Config>, sub_id: String
     let mcp_connection_manager = sess.services.mcp_connection_manager.read().await;
     let auth = sess.services.auth_manager.auth().await;
     let background_authorization_header_value = if let Some(auth) = auth.as_ref() {
-        sess.services
-            .auth_manager
-            .chatgpt_authorization_header_for_auth(auth)
-            .await
+        auth.authorization_header_value().ok()
     } else {
         None
     };

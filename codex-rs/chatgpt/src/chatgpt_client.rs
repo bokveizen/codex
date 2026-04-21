@@ -39,10 +39,9 @@ pub(crate) async fn chatgpt_get_request_with_timeout<T: DeserializeOwned>(
         .as_ref()
         .is_some_and(codex_login::CodexAuth::is_fedramp_account);
     let authorization_header_value = match auth.as_ref() {
-        Some(auth) if auth.is_chatgpt_auth() => auth_manager
-            .chatgpt_authorization_header_for_auth(auth)
-            .await
-            .unwrap_or_else(|| format!("Bearer {}", token.access_token)),
+        Some(auth) if auth.uses_codex_backend() => auth
+            .authorization_header_value()
+            .unwrap_or_else(|_| format!("Bearer {}", token.access_token)),
         _ => format!("Bearer {}", token.access_token),
     };
 

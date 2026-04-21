@@ -205,13 +205,14 @@ fn codex_apps_mcp_bearer_token_env_var() -> Option<String> {
     }
 }
 
-fn codex_apps_mcp_bearer_token(auth: Option<&CodexAuth>) -> Option<String> {
-    let token = auth.and_then(|auth| auth.get_token().ok())?;
-    let token = token.trim();
-    if token.is_empty() {
+fn codex_apps_mcp_authorization_header_value(auth: Option<&CodexAuth>) -> Option<String> {
+    let authorization_header_value =
+        auth.and_then(|auth| auth.authorization_header_value().ok())?;
+    let authorization_header_value = authorization_header_value.trim();
+    if authorization_header_value.is_empty() {
         None
     } else {
-        Some(token.to_string())
+        Some(authorization_header_value.to_string())
     }
 }
 
@@ -225,8 +226,9 @@ fn codex_apps_mcp_http_headers(
             "Authorization".to_string(),
             authorization_header_value.to_string(),
         );
-    } else if let Some(token) = codex_apps_mcp_bearer_token(auth) {
-        headers.insert("Authorization".to_string(), format!("Bearer {token}"));
+    } else if let Some(authorization_header_value) = codex_apps_mcp_authorization_header_value(auth)
+    {
+        headers.insert("Authorization".to_string(), authorization_header_value);
     }
     if let Some(account_id) = auth.and_then(CodexAuth::get_account_id) {
         headers.insert("ChatGPT-Account-ID".to_string(), account_id);

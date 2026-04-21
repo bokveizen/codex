@@ -105,7 +105,7 @@ pub(crate) async fn monitor_action(
 ) -> ArcMonitorOutcome {
     let auth = match turn_context.auth_manager.as_ref() {
         Some(auth_manager) => match auth_manager.auth().await {
-            Some(auth) if auth.is_chatgpt_auth() => Some(auth),
+            Some(auth) if auth.uses_codex_backend() => Some(auth),
             _ => None,
         },
         None => None,
@@ -120,13 +120,7 @@ pub(crate) async fn monitor_action(
             let Some(auth) = auth.as_ref() else {
                 return ArcMonitorOutcome::Ok;
             };
-            let Some(auth_manager) = turn_context.auth_manager.as_ref() else {
-                return ArcMonitorOutcome::Ok;
-            };
-            let Some(authorization_header_value) = auth_manager
-                .chatgpt_authorization_header_for_auth(auth)
-                .await
-            else {
+            let Ok(authorization_header_value) = auth.authorization_header_value() else {
                 return ArcMonitorOutcome::Ok;
             };
             (authorization_header_value, auth.get_account_id())

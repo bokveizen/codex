@@ -195,15 +195,11 @@ trait RequirementsFetcher: Send + Sync {
 
 struct BackendRequirementsFetcher {
     base_url: String,
-    auth_manager: Arc<AuthManager>,
 }
 
 impl BackendRequirementsFetcher {
-    fn new(auth_manager: Arc<AuthManager>, base_url: String) -> Self {
-        Self {
-            base_url,
-            auth_manager,
-        }
+    fn new(_auth_manager: Arc<AuthManager>, base_url: String) -> Self {
+        Self { base_url }
     }
 }
 
@@ -213,10 +209,7 @@ impl RequirementsFetcher for BackendRequirementsFetcher {
         &self,
         auth: &CodexAuth,
     ) -> Result<Option<String>, FetchAttemptError> {
-        let authorization_header_value = self
-            .auth_manager
-            .chatgpt_authorization_header_for_auth(auth)
-            .await;
+        let authorization_header_value = auth.authorization_header_value().ok();
         let mut client = BackendClient::new(self.base_url.clone())
             .map(|client| {
                 client.with_user_agent(codex_login::default_client::get_codex_user_agent())
@@ -351,7 +344,7 @@ impl CloudRequirementsService {
         let Some(plan_type) = auth.account_plan_type() else {
             return Ok(None);
         };
-        if !auth.is_chatgpt_auth()
+        if !auth.uses_codex_backend()
             || !(plan_type.is_business_like() || matches!(plan_type, PlanType::Enterprise))
         {
             return Ok(None);
@@ -571,7 +564,7 @@ impl CloudRequirementsService {
         let Some(plan_type) = auth.account_plan_type() else {
             return false;
         };
-        if !auth.is_chatgpt_auth()
+        if !auth.uses_codex_backend()
             || !(plan_type.is_business_like() || matches!(plan_type, PlanType::Enterprise))
         {
             return false;

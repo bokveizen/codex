@@ -52,7 +52,7 @@ fn ensure_chatgpt_auth(auth: Option<&CodexAuth>) -> Result<&CodexAuth> {
     let Some(auth) = auth else {
         anyhow::bail!("chatgpt authentication required for remote skill scopes");
     };
-    if !auth.is_chatgpt_auth() {
+    if !auth.uses_codex_backend() {
         anyhow::bail!(
             "chatgpt authentication required for remote skill scopes; api key auth is not supported"
         );
@@ -112,7 +112,8 @@ pub async fn list_remote_skills(
         .get(&url)
         .timeout(REMOTE_SKILLS_API_TIMEOUT)
         .query(&query_params);
-    let authorization_header_value = authorization_header_value_for_auth(auth)
+    let authorization_header_value = auth
+        .authorization_header_value()
         .context("Failed to read auth token for remote skills")?;
     request = request.header("authorization", authorization_header_value);
     if let Some(account_id) = auth.get_account_id() {
@@ -159,7 +160,8 @@ pub async fn export_remote_skill(
     let url = format!("{base_url}/hazelnuts/{skill_id}/export");
     let mut request = client.get(&url).timeout(REMOTE_SKILLS_API_TIMEOUT);
 
-    let authorization_header_value = authorization_header_value_for_auth(auth)
+    let authorization_header_value = auth
+        .authorization_header_value()
         .context("Failed to read auth token for remote skills")?;
     request = request.header("authorization", authorization_header_value);
     if let Some(account_id) = auth.get_account_id() {
@@ -203,10 +205,6 @@ pub async fn export_remote_skill(
         id: skill_id.to_string(),
         path: output_dir,
     })
-}
-
-fn authorization_header_value_for_auth(auth: &CodexAuth) -> std::io::Result<String> {
-    auth.get_token().map(|token| format!("Bearer {token}"))
 }
 
 fn safe_join(base: &Path, name: &str) -> Result<PathBuf> {

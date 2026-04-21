@@ -106,7 +106,7 @@ async fn rewrite_argument_value_for_openai_files(
 }
 
 async fn build_uploaded_local_argument_value(
-    sess: &Session,
+    _sess: &Session,
     turn_context: &TurnContext,
     auth: Option<&CodexAuth>,
     field_name: &str,
@@ -119,14 +119,9 @@ async fn build_uploaded_local_argument_value(
             "ChatGPT auth is required to upload local files for Codex Apps tools".to_string(),
         );
     };
-    let authorization_header_value = sess
-        .services
-        .auth_manager
-        .chatgpt_authorization_header_for_auth(auth)
-        .await
-        .ok_or_else(|| {
-            "ChatGPT auth is required to upload local files for Codex Apps tools".to_string()
-        })?;
+    let authorization_header_value = auth.authorization_header_value().map_err(|_| {
+        "ChatGPT auth is required to upload local files for Codex Apps tools".to_string()
+    })?;
     let mut auth_provider = AuthorizationHeaderAuthProvider::new(
         Some(authorization_header_value),
         auth.get_account_id(),
@@ -172,10 +167,8 @@ mod tests {
         turn_context: &mut TurnContext,
         _chatgpt_base_url: String,
     ) {
-        let auth = CodexAuth::create_dummy_chatgpt_auth_for_testing();
-        let auth_manager = AuthManager::from_auth_for_testing(auth);
-        auth_manager
-            .set_chatgpt_backend_base_url(Some("https://chatgpt.com/backend-api".to_string()));
+        let auth_manager =
+            AuthManager::from_auth_for_testing(CodexAuth::create_dummy_chatgpt_auth_for_testing());
         session.services.auth_manager = Arc::clone(&auth_manager);
         turn_context.auth_manager = Some(auth_manager);
     }
@@ -513,14 +506,15 @@ mod tests {
         use wiremock::MockServer;
         use wiremock::ResponseTemplate;
         use wiremock::matchers::body_json;
-        use wiremock::matchers::header_regex;
+        use wiremock::matchers::header;
         use wiremock::matchers::method;
         use wiremock::matchers::path;
 
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/backend-api/files"))
-            .and(header_regex("authorization", r"^Bearer .+"))
+            .and(header("authorization", "Bearer Access Token"))
+            .and(header("chatgpt-account-id", "account_id"))
             .and(body_json(serde_json::json!({
                 "file_name": "file_report.csv",
                 "file_size": 5,
@@ -541,7 +535,8 @@ mod tests {
             .await;
         Mock::given(method("POST"))
             .and(path("/backend-api/files/file_123/uploaded"))
-            .and(header_regex("authorization", r"^Bearer .+"))
+            .and(header("authorization", "Bearer Access Token"))
+            .and(header("chatgpt-account-id", "account_id"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "status": "success",
                 "download_url": format!("{}/download/file_123", server.uri()),

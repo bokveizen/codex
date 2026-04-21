@@ -1969,7 +1969,7 @@ impl CodexMessageProcessor {
             });
         };
 
-        if !auth.is_chatgpt_auth() {
+        if !auth.uses_codex_backend() {
             return Err(JSONRPCErrorError {
                 code: INVALID_REQUEST_ERROR_CODE,
                 message: "chatgpt authentication required to notify workspace owner".to_string(),
@@ -2024,7 +2024,7 @@ impl CodexMessageProcessor {
             });
         };
 
-        if !auth.is_chatgpt_auth() {
+        if !auth.uses_codex_backend() {
             return Err(JSONRPCErrorError {
                 code: INVALID_REQUEST_ERROR_CODE,
                 message: "chatgpt authentication required to read rate limits".to_string(),
@@ -2032,10 +2032,7 @@ impl CodexMessageProcessor {
             });
         }
 
-        let authorization_header_value = self
-            .auth_manager
-            .chatgpt_authorization_header_for_auth(&auth)
-            .await;
+        let authorization_header_value = auth.authorization_header_value().ok();
         let mut client = BackendClient::new(self.config.chatgpt_base_url.clone())
             .map(|client| {
                 client.with_user_agent(codex_login::default_client::get_codex_user_agent())
@@ -5820,9 +5817,7 @@ impl CodexMessageProcessor {
             };
 
             let background_authorization_header_value = if let Some(auth) = auth.as_ref() {
-                auth_manager
-                    .chatgpt_authorization_header_for_auth(auth)
-                    .await
+                auth.authorization_header_value().ok()
             } else {
                 None
             };

@@ -1558,31 +1558,6 @@ impl AuthManager {
             .and_then(|guard| guard.clone())
     }
 
-    /// Returns the default authorization header for ChatGPT backend requests.
-    pub async fn chatgpt_authorization_header(self: &Arc<Self>) -> Option<String> {
-        let auth = self.auth().await?;
-        self.chatgpt_authorization_header_for_auth(&auth).await
-    }
-
-    pub async fn chatgpt_authorization_header_for_auth(
-        self: &Arc<Self>,
-        auth: &CodexAuth,
-    ) -> Option<String> {
-        if !auth.is_chatgpt_auth() {
-            return None;
-        }
-
-        Self::chatgpt_bearer_authorization_header_for_auth(auth)
-    }
-
-    pub fn chatgpt_bearer_token_for_auth(auth: &CodexAuth) -> Option<String> {
-        auth.get_token().ok().filter(|token| !token.is_empty())
-    }
-
-    pub fn chatgpt_bearer_authorization_header_for_auth(auth: &CodexAuth) -> Option<String> {
-        Self::chatgpt_bearer_token_for_auth(auth).map(|token| format!("Bearer {token}"))
-    }
-
     pub fn initialize_auth_runtime_blocking(&self) -> std::io::Result<()> {
         let Some(auth) = self.auth_cached() else {
             return Ok(());

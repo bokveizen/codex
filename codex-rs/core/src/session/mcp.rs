@@ -219,10 +219,7 @@ impl Session {
             .tool_plugin_provenance(config.as_ref())
             .await;
         let background_authorization_header_value = if let Some(auth) = auth.as_ref() {
-            self.services
-                .auth_manager
-                .chatgpt_authorization_header_for_auth(auth)
-                .await
+            auth.authorization_header_value().ok()
         } else {
             None
         };

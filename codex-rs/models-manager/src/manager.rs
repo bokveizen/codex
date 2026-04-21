@@ -412,7 +412,11 @@ impl ModelsManager {
             .provider
             .auth_manager()
             .and_then(|auth_manager| auth_manager.auth_mode());
-        if auth_mode != Some(AuthMode::Chatgpt) && !self.provider.info().has_command_auth() {
+        let uses_codex_backend = matches!(
+            auth_mode,
+            Some(AuthMode::Chatgpt | AuthMode::ChatgptAuthTokens | AuthMode::AgentIdentity)
+        );
+        if !uses_codex_backend && !self.provider.info().has_command_auth() {
             if matches!(
                 refresh_strategy,
                 RefreshStrategy::Offline | RefreshStrategy::OnlineIfUncached
@@ -455,12 +459,10 @@ impl ModelsManager {
         let auth_mode = auth.as_ref().map(CodexAuth::auth_mode);
         let api_provider = self.provider.api_provider().await?;
         let mut api_auth = self.provider.api_auth().await?;
-        if let Some(auth_manager) = auth_manager.as_ref()
-            && let Some(auth) = auth.as_ref().filter(|auth| auth.is_chatgpt_auth())
+        if auth_manager.is_some()
+            && let Some(auth) = auth.as_ref().filter(|auth| auth.uses_codex_backend())
             && provider_uses_codex_login_auth(self.provider.info())
-            && let Some(authorization_header_value) = auth_manager
-                .chatgpt_authorization_header_for_auth(auth)
-                .await
+            && let Ok(authorization_header_value) = auth.authorization_header_value()
         {
             let mut auth_provider = AuthorizationHeaderAuthProvider::new(
                 Some(authorization_header_value),
@@ -557,7 +559,10 @@ impl ModelsManager {
             .provider
             .auth_manager()
             .and_then(|auth_manager| auth_manager.auth_mode());
-        let chatgpt_mode = matches!(auth_mode, Some(AuthMode::Chatgpt));
+        let chatgpt_mode = matches!(
+            auth_mode,
+            Some(AuthMode::Chatgpt | AuthMode::ChatgptAuthTokens | AuthMode::AgentIdentity)
+        );
         presets = ModelPreset::filter_by_auth(presets, chatgpt_mode);
 
         ModelPreset::mark_default_by_picker_visibility(&mut presets);

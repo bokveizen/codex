@@ -127,20 +127,20 @@ pub async fn fetch_remote_plugin_status(
     let Some(auth) = auth else {
         return Err(RemotePluginFetchError::AuthRequired);
     };
-    if !auth.is_chatgpt_auth() {
+    if !auth.uses_codex_backend() {
         return Err(RemotePluginFetchError::UnsupportedAuthMode);
     }
 
     let base_url = config.chatgpt_base_url.trim_end_matches('/');
     let url = format!("{base_url}/plugins/list");
     let client = build_reqwest_client();
-    let token = auth
-        .get_token()
+    let authorization_header_value = auth
+        .authorization_header_value()
         .map_err(RemotePluginFetchError::AuthToken)?;
     let mut request = client
         .get(&url)
         .timeout(REMOTE_PLUGIN_FETCH_TIMEOUT)
-        .bearer_auth(token);
+        .header("authorization", authorization_header_value);
     if let Some(account_id) = auth.get_account_id() {
         request = request.header("chatgpt-account-id", account_id);
     }
@@ -180,11 +180,11 @@ pub async fn fetch_remote_featured_plugin_ids(
         )])
         .timeout(REMOTE_FEATURED_PLUGIN_FETCH_TIMEOUT);
 
-    if let Some(auth) = auth.filter(|auth| auth.is_chatgpt_auth()) {
-        let token = auth
-            .get_token()
+    if let Some(auth) = auth.filter(|auth| auth.uses_codex_backend()) {
+        let authorization_header_value = auth
+            .authorization_header_value()
             .map_err(RemotePluginFetchError::AuthToken)?;
-        request = request.bearer_auth(token);
+        request = request.header("authorization", authorization_header_value);
         if let Some(account_id) = auth.get_account_id() {
             request = request.header("chatgpt-account-id", account_id);
         }
@@ -231,7 +231,7 @@ fn ensure_chatgpt_auth(auth: Option<&CodexAuth>) -> Result<&CodexAuth, RemotePlu
     let Some(auth) = auth else {
         return Err(RemotePluginMutationError::AuthRequired);
     };
-    if !auth.is_chatgpt_auth() {
+    if !auth.uses_codex_backend() {
         return Err(RemotePluginMutationError::UnsupportedAuthMode);
     }
     Ok(auth)
@@ -250,13 +250,13 @@ async fn post_remote_plugin_mutation(
     let auth = ensure_chatgpt_auth(auth)?;
     let url = remote_plugin_mutation_url(config, plugin_id, action)?;
     let client = build_reqwest_client();
-    let token = auth
-        .get_token()
+    let authorization_header_value = auth
+        .authorization_header_value()
         .map_err(RemotePluginMutationError::AuthToken)?;
     let mut request = client
         .post(url.clone())
         .timeout(REMOTE_PLUGIN_MUTATION_TIMEOUT)
-        .bearer_auth(token);
+        .header("authorization", authorization_header_value);
     if let Some(account_id) = auth.get_account_id() {
         request = request.header("chatgpt-account-id", account_id);
     }

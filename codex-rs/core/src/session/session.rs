@@ -337,11 +337,7 @@ impl Session {
         let auth_and_mcp_fut = async move {
             let auth = auth_manager_clone.auth().await;
             let authorization_header_value = match auth.as_ref() {
-                Some(auth) => {
-                    auth_manager_clone
-                        .chatgpt_authorization_header_for_auth(auth)
-                        .await
-                }
+                Some(auth) => auth.authorization_header_value().ok(),
                 None => None,
             };
             let mcp_servers = mcp_manager_for_mcp

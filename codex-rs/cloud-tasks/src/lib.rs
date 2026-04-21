@@ -85,10 +85,7 @@ async fn init_backend(user_agent_suffix: &str) -> anyhow::Result<BackendContext>
         append_error_log(format!("auth: mode=ChatGPT account_id={acc}"));
     }
 
-    let authorization_header_value = auth_manager
-        .chatgpt_authorization_header_for_auth(&auth)
-        .await;
-    let Some(authorization_header_value) = authorization_header_value else {
+    let Ok(authorization_header_value) = auth.authorization_header_value() else {
         eprintln!(
             "Not signed in. Please run 'codex login' to sign in with ChatGPT, then re-run 'codex cloud'."
         );
