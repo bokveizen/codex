@@ -1,3 +1,4 @@
+use codex_utils_absolute_path::AbsolutePathBuf;
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
 use std::time::Duration;
@@ -57,10 +58,11 @@ async fn emit_js_repl_exec_begin(
     session: &crate::session::session::Session,
     turn: &crate::session::turn_context::TurnContext,
     call_id: &str,
+    cwd: &AbsolutePathBuf,
 ) {
     let emitter = ToolEmitter::shell(
         vec!["js_repl".to_string()],
-        turn.cwd.clone(),
+        cwd.clone(),
         ExecCommandSource::Agent,
         /*freeform*/ false,
     );
@@ -72,6 +74,7 @@ async fn emit_js_repl_exec_end(
     session: &crate::session::session::Session,
     turn: &crate::session::turn_context::TurnContext,
     call_id: &str,
+    cwd: &AbsolutePathBuf,
     output: &str,
     error: Option<&str>,
     duration: Duration,
@@ -79,7 +82,7 @@ async fn emit_js_repl_exec_end(
     let exec_output = build_js_repl_exec_output(output, error, duration);
     let emitter = ToolEmitter::shell(
         vec!["js_repl".to_string()],
-        turn.cwd.clone(),
+        cwd.clone(),
         ExecCommandSource::Agent,
         /*freeform*/ false,
     );
@@ -130,9 +133,18 @@ impl ToolHandler for JsReplHandler {
                 ));
             }
         };
+        let tool_environment = turn.default_environment().ok_or_else(|| {
+            FunctionCallError::RespondToModel("js_repl is unavailable in this session".to_string())
+        })?;
         let manager = turn.js_repl.manager().await?;
         let started_at = Instant::now();
-        emit_js_repl_exec_begin(session.as_ref(), turn.as_ref(), &call_id).await;
+        emit_js_repl_exec_begin(
+            session.as_ref(),
+            turn.as_ref(),
+            &call_id,
+            &tool_environment.cwd,
+        )
+        .await;
         let result = manager
             .execute(Arc::clone(&session), Arc::clone(&turn), tracker, args)
             .await;
@@ -144,6 +156,7 @@ impl ToolHandler for JsReplHandler {
                     session.as_ref(),
                     turn.as_ref(),
                     &call_id,
+                    &tool_environment.cwd,
                     "",
                     Some(&message),
                     started_at.elapsed(),
@@ -166,6 +179,7 @@ impl ToolHandler for JsReplHandler {
             session.as_ref(),
             turn.as_ref(),
             &call_id,
+            &tool_environment.cwd,
             &content,
             /*error*/ None,
             started_at.elapsed(),
