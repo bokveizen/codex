@@ -1387,10 +1387,10 @@ dependencies = [
  "ed25519-dalek",
  "pretty_assertions",
  "rand 0.9.3",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",
- "url",
 ]
 
 [[package]]
@@ -2386,6 +2386,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
+ "codex-agent-identity",
  "codex-app-server-protocol",
  "codex-client",
  "codex-config",
